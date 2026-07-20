@@ -31,7 +31,7 @@ pip install --quiet --upgrade pip
 pip install --quiet \
     tensorflow \
     onnxruntime \
-    numpy scipy psutil \
+    numpy scipy psutil Pillow \
     2>&1 | tail -2
 
 echo "[4/6] Download models..."
