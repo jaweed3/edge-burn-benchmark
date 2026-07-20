@@ -61,7 +61,11 @@ fn parse_args() -> Args {
 // ---------------------------------------------------------------------------
 
 fn now_ms() -> f64 {
-    Instant::now().elapsed().as_secs_f64() * 1000.0
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64()
+        * 1000.0
 }
 
 // ---------------------------------------------------------------------------
@@ -91,7 +95,7 @@ fn read_memory_mb() -> f64 {
     fs::read_to_string("/proc/self/status").ok().and_then(|s| {
         s.lines().find(|l| l.starts_with("VmRSS:"))
             .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<f64>().ok()))
-    }).unwrap_or(0.0)
+    }).map(|kb| kb / 1024.0).unwrap_or(0.0)
 }
 
 // ---------------------------------------------------------------------------
