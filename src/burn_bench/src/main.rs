@@ -141,7 +141,7 @@ fn main() -> TractResult<()> {
     // ---- Warmup ----
     println!("  Warmup: {} iterations...", args.warmup);
     for _ in 0..args.warmup {
-        let _ = model.run(tvec!(input_val.clone()))?;
+        let _ = model.run(tvec!(input_val.clone().into()))?;
         cpu_samples.push(read_cpu_usage());
         mem_samples.push(read_memory_mb());
         temp_samples.push(read_temperature());
@@ -153,7 +153,7 @@ fn main() -> TractResult<()> {
 
     for i in 0..args.measured {
         let t0 = now_ms();
-        let _ = model.run(tvec!(input_val.clone()))?;
+        let _ = model.run(tvec!(input_val.clone().into()))?;
         let elapsed = now_ms() - t0;
 
         latencies_ms.push(elapsed);
