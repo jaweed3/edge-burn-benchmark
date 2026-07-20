@@ -54,9 +54,9 @@ Edge inference, ARM64, Raspberry Pi, Burn, tract-onnx, TensorFlow Lite, ONNX Run
 
 The proliferation of deep learning on edge devices has created a growing demand for efficient inference runtimes that balance latency, memory, and power consumption~\cite{howard2017mobilenets, sandler2018mobilenetv2}. Single-board computers such as the Raspberry Pi series have become popular platforms for edge AI prototyping due to their affordability and accessibility. However, selecting an appropriate inference framework for these resource-constrained platforms requires rigorous comparative benchmarking under controlled conditions.
 
-Prior work includes Ignatov et al.~\cite{ignatov2019ai}, who benchmarked mobile AI accelerators across multiple frameworks, and AskariHemmat et al.~\cite{askarihemmat2020systematic}, who evaluated TFLite and ONNX Runtime on edge devices. Almeida et al.~\cite{almeida2023benchmarking} compared inference engines for embedded deployment, while Liu et al.~\cite{liu2024edgebenc} proposed a systematic edge-inference benchmark methodology. TFLite~\cite{tflite2017} and ONNX Runtime~\cite{onnx2019} are the dominant general-purpose inference frameworks for ARM edge deployment, with extensive ecosystem support. On the hardware front, Bozkurt et al.~\cite{yolov4pi2025} demonstrated real-time object detection on the Pi 5 using TFLite INT8 quantization.
+Prior work includes Ignatov et al.~\cite{ignatov2019ai}, who benchmarked mobile AI accelerators across multiple frameworks, and AskariHemmat et al.~\cite{askarihemmat2020systematic}, who evaluated TFLite and ONNX Runtime on edge devices. Almeida et al.~\cite{almeida2023benchmarking} compared inference engines for embedded deployment, while Ahn et al.~\cite{ahn2023quantization} characterized quantization effects across frameworks including TFLite and ONNX on Raspberry Pi using the MLPerf methodology. TFLite~\cite{tflite2017} and ONNX Runtime~\cite{onnx2019} are the dominant general-purpose inference frameworks for ARM edge deployment, with extensive ecosystem support. On the hardware front, Boddu et al.~\cite{yolov4pi2025} demonstrated real-time object detection on the Pi 5 using TFLite INT8 quantization.
 
-More recently, the Burn framework~\cite{burn2024} introduced Rust-native deep learning with ONNX import capabilities, built on tract-onnx~\cite{tract2023}. Rust-based inference~\cite{vasquez2023rust} offers potential advantages in memory safety and predictable performance without garbage collection. However, Burn's inference performance on ARM64 hardware has not been systematically benchmarked against established frameworks, motivating this study.
+More recently, the Burn framework~\cite{burn2024} introduced Rust-native deep learning with ONNX import capabilities, built on tract-onnx~\cite{tract2023}. Rust-based inference~\cite{carnelos2024microflow} offers potential advantages in memory safety and predictable performance without garbage collection. However, Burn's inference performance on ARM64 hardware has not been systematically benchmarked against established frameworks, motivating this study.
 
 Three methodological considerations distinguish this work from prior benchmarks. First, we explicitly measure steady-state warm-cache latency after a 1000-iteration warmup---single-tensor repetition eliminates input-variance confounding, but we frame results accordingly as cache-warm steady-state performance rather than general-purpose throughput. Second, we simultaneously collect latency, memory, CPU utilization, and temperature under a single controlled protocol. Third, we provide a fully reproducible pipeline with code, data, and figures publicly available.
 
@@ -186,13 +186,13 @@ J.~Zhang et al., ``ONNX: Open neural network exchange and ONNX Runtime,'' \texti
 F.~Almeida, A.~Lopes, and J.~Cabral, ``Benchmarking inference engines for embedded deep learning,'' \textit{IEEE Access}, vol.~11, pp. 10234--10249, 2023.
 
 \bibitem{yolov4pi2025}
-E.~Bozkurt and collaborators, ``Efficient edge deployment of quantized YOLOv4-Tiny for aerial emergency imagery on Raspberry Pi 5,'' \textit{arXiv:2506.09300}, 2025.
+S.~Boddu et al., ``Efficient edge deployment of quantized YOLOv4-Tiny for aerial emergency object detection on Raspberry Pi 5,'' \textit{arXiv:2506.09300}, 2025.
 
-\bibitem{liu2024edgebenc}
-Y.~Liu et al., ``EdgeBench: A comprehensive benchmark for deep learning inference at the edge,'' \textit{Future Generation Computer Systems}, vol.~152, pp. 278--294, 2024.
+\bibitem{ahn2023quantization}
+B.~Ahn, J.~Chen, and Y.~Kim, ``Performance characterization of using quantization for DNN inference on edge computing platforms,'' in \textit{Proc. IEEE ICFEC}, 2023.
 
-\bibitem{vasquez2023rust}
-J.~V\'{a}squez, A.~Garc\'{i}a, and M.~L\'{o}pez, ``Safe and efficient deep learning inference in Rust for embedded systems,'' in \textit{Proc. IEEE ICECS}, 2023.
+\bibitem{carnelos2024microflow}
+M.~Carnelos et al., ``MicroFlow: An efficient Rust-based inference engine for TinyML,'' \textit{arXiv:2409.19432}, 2024.
 
 \end{thebibliography}
 
