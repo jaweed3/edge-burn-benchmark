@@ -121,15 +121,15 @@ fn main() -> TractResult<()> {
     println!("  Model loaded & optimized.");
 
     // Create input tensor (random, standard normal-ish)
-    let input = tract_ndarray::Array4::<f32>::random(
+    let input = tract_ndarray::Array4::<f32>::from_shape_fn(
         (1, 3, INPUT_SIZE, INPUT_SIZE),
-        rand::distributions::Uniform::new(0.0f32, 1.0),
+        |_| rand::random::<f32>(),
     );
     // Normalize with ImageNet stats
     let mean = 0.485f32;
     let std = 0.229f32;
     let input = (input - mean) / std;
-    let input_val = TractValue::from(input);
+    let input_val = tract_onnx::prelude::Tensor::from(input);
 
     // Container for latencies
     let n_total = args.warmup + args.measured;
