@@ -29,7 +29,7 @@ fi
 source .venv/bin/activate
 pip install --quiet --upgrade pip
 pip install --quiet \
-    tflite-runtime \
+    tensorflow \
     onnxruntime \
     numpy scipy psutil \
     2>&1 | tail -2

@@ -46,9 +46,9 @@ class TFLiteInference:
     """Wraps a TFLite interpreter for benchmarking."""
 
     def __init__(self, model_path: str, n_threads: int = 1):
-        from tflite_runtime.interpreter import Interpreter
+        import tensorflow as tf
 
-        self.interpreter = Interpreter(
+        self.interpreter = tf.lite.Interpreter(
             model_path=model_path,
             num_threads=n_threads,
         )
