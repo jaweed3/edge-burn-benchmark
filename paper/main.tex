@@ -1,6 +1,6 @@
-% Benchmarking Burn, TensorFlow Lite, and ONNX Runtime for Edge Inference on ARM64
+% Benchmarking Burn, TFLite, and ONNX Runtime Inference on ARM64 Edge Devices
 % ComTech: Computer, Mathematics and Engineering Applications
-% Template: IEEEtran two-column
+% IEEEtran two-column
 
 \documentclass[conference]{IEEEtran}
 \usepackage{cite}
@@ -11,8 +11,6 @@
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{hyperref}
-\usepackage{float}
-\usepackage[table]{xcolor}
 \usepackage{array}
 
 \hypersetup{
@@ -26,7 +24,7 @@
 
 \begin{document}
 
-\title{Benchmarking Rust-Based ONNX Inference, TensorFlow Lite, and ONNX Runtime for Edge Deployment on ARM64}
+\title{Benchmarking Burn, TFLite, and ONNX Runtime Inference on ARM64 Edge Devices}
 
 \author{\IEEEauthorblockN{Fatih Jawwad Al Mumtaz$^{1}$, Amirul Al Aziz$^{2}$}
 \IEEEauthorblockA{$^{1}$Informatics Engineering Department\\
@@ -57,63 +55,25 @@ Edge inference, ARM64, Raspberry Pi, Burn, tract-onnx, TensorFlow Lite, ONNX Run
 The proliferation of deep learning on edge devices has created a growing demand for efficient inference runtimes that balance latency, memory, and power consumption~\cite{howard2017mobilenets, sandler2018mobilenetv2}. Single-board computers such as the Raspberry Pi series have become popular platforms for edge AI prototyping due to their affordability and accessibility. However, selecting an appropriate inference framework for these resource-constrained platforms requires rigorous comparative benchmarking under controlled conditions.
 
 Prior work includes Ignatov et al.~\cite{ignatov2019ai}, who benchmarked mobile AI accelerators across multiple frameworks, and AskariHemmat et al.~\cite{askarihemmat2020systematic}, who evaluated TFLite and ONNX Runtime on edge devices. Almeida et al.~\cite{almeida2023benchmarking} compared inference engines for embedded deployment, while Liu et al.~\cite{liu2024edgebenc} proposed a systematic edge-inference benchmark methodology. TFLite~\cite{tflite2017} and ONNX Runtime~\cite{onnx2019} are the dominant general-purpose inference frameworks for ARM edge deployment, with extensive ecosystem support. On the hardware front, Bozkurt et al.~\cite{yolov4pi2025} demonstrated real-time object detection on the Pi 5 using TFLite INT8 quantization.
+
 More recently, the Burn framework~\cite{burn2024} introduced Rust-native deep learning with ONNX import capabilities, built on tract-onnx~\cite{tract2023}. Rust-based inference~\cite{vasquez2023rust} offers potential advantages in memory safety and predictable performance without garbage collection. However, Burn's inference performance on ARM64 hardware has not been systematically benchmarked against established frameworks, motivating this study.
 
 Three methodological considerations distinguish this work from prior benchmarks. First, we explicitly measure steady-state warm-cache latency after a 1000-iteration warmup---single-tensor repetition eliminates input-variance confounding, but we frame results accordingly as cache-warm steady-state performance rather than general-purpose throughput. Second, we simultaneously collect latency, memory, CPU utilization, and temperature under a single controlled protocol. Third, we provide a fully reproducible pipeline with code, data, and figures publicly available.
 
+%----------------------------------------------------------------------
 \section{Methods}
 \label{sec:methods}
+%----------------------------------------------------------------------
 
-\subsection{Hardware Platform}
+Experiments were conducted on a Raspberry Pi 5 (Broadcom BCM2712, quad-core ARM Cortex-A76 at 2.4 GHz, 8 GB LPDDR4X, 64 GB microSD storage) running Debian GNU/Linux with kernel 6.18.34+rpt-rpi-2712. The Pi 5 was cooled passively with a heatsink and no active fan, matching typical low-cost edge deployment configurations.
 
-Experiments were conducted on a Raspberry Pi 5 running Debian GNU/Linux (kernel 6.18.34+rpt-rpi-2712) with the following specifications:
-\begin{itemize}
-    \item \textbf{SoC:} Broadcom BCM2712, quad-core ARM Cortex-A76 at 2.4 GHz
-    \item \textbf{Memory:} 8 GB LPDDR4X
-    \item \textbf{Storage:} 64 GB microSD (UHS-I)
-    \item \textbf{Cooling:} Passive heatsink, no active fan
-\end{itemize}
+Burn~\cite{burn2024} is a Rust-native deep learning framework. We used tract-onnx~\cite{tract2023} (v0.21), a pure-Rust ONNX inference engine. The \texttt{mobilenetv2-7.onnx} model was loaded at runtime via \texttt{tract\_onnx::onnx()} and optimized through tract's constant-folding and shape-inference passes, with inference running in f32 precision. Thread count is controlled via the \texttt{RAYON\_NUM\_THREADS} and \texttt{OMP\_NUM\_THREADS} environment variables, set from the CLI \texttt{--threads} argument. As shown in Section~\ref{sec:results}, tract-onnx's execution plan remains single-threaded regardless of the thread configuration; the env-var setting is preserved for reproducibility but has no parallelization effect on this framework. TFLite was used via the Python \texttt{tensorflow} package (v2.\textit{x}) with the XNNPACK delegate, with interpreter thread count controlled via \texttt{setNumThreads()}. ONNX Runtime was used via \texttt{onnxruntime} with the CPU execution provider and thread count set via \texttt{SessionOptions.intra\_op\_num\_threads}.
 
-\subsection{Framework Configuration}
+All frameworks ran MobileNetV2~\cite{sandler2018mobilenetv2} at $224\times224\times3$ input resolution. A single synthetic input tensor was generated per run using a deterministic seed (42) and held constant across all 2000 iterations. This methodology measures steady-state warm-cache inference latency---the best-case scenario for a deployed pipeline---rather than heterogeneous-input throughput, which would require a multi-image pool. We explicitly flag this scope limitation in Section~\ref{sec:discussion}. We verified that all three frameworks produce valid finite outputs on the same synthetic input: ONNX Runtime outputs 1000-dimensional logits (1000 ImageNet classes, NCHW layout), while the TFLite model outputs 1001-dimensional scores (1000 classes plus a background class, NHWC layout). All outputs are NaN/Inf-free. Since this benchmark measures inference \emph{latency} rather than prediction \emph{accuracy}, the exact output values do not confound the timing results.
 
-\noindent\textbf{Burn (tract-onnx):} Burn~\cite{burn2024} is a Rust-native deep learning framework. We used tract-onnx~\cite{tract2023} (v0.21), a pure-Rust ONNX inference engine. The \texttt{mobilenetv2-7.onnx} model was loaded at runtime via \texttt{tract\_onnx::onnx()} and optimized through tract's constant-folding and shape-inference passes. Inference uses f32 precision. Thread count is controlled via the \texttt{RAYON\_NUM\_THREADS} and \texttt{OMP\_NUM\_THREADS} environment variables, set from the CLI \texttt{--threads} argument. As shown in Section~\ref{sec:results}, tract-onnx's execution plan remains single-threaded regardless; the env-var setting is preserved for reproducibility but has no parallelization effect on this framework.
+Each framework was evaluated under single-threaded (1t) and multi-threaded (4t) configurations. The protocol for each run consisted of 1000 warmup passes to stabilize CPU frequency scaling, branch predictors, and framework-internal caches, followed by 1000 measured passes with concurrent system-metric sampling. The Rust benchmark was compiled with \texttt{cargo build --release}. Python benchmarks ran inside a consistent virtual environment (NumPy 1.\textit{x}, SciPy 1.\textit{x}, psutil 5.\textit{x}). All six configuration runs were executed sequentially on the same Pi 5 with no other user processes, ensuring no CPU contention across concurrent benchmark processes.
 
-\noindent\textbf{TensorFlow Lite:} TFLite was used via the Python \texttt{tensorflow} package (v2.\textit{x}) with the XNNPACK delegate. Interpreter threads were set via \texttt{setNumThreads()}. Input preprocessing: resize to $224\times224$, pixel values in $[0,1]$.
-
-\noindent\textbf{ONNX Runtime:} ORT was used via \texttt{onnxruntime} (CPU execution provider) with thread count via \texttt{SessionOptions.intra\_op\_num\_threads}. Input preprocessing: resize to $224\times224$, normalize to $[-1,1]$ via $(x/127.5)-1$, NCHW layout.
-
-\subsection{Model and Input}
-
-All frameworks ran MobileNetV2~\cite{sandler2018mobilenetv2} at $224\times224\times3$ input resolution. A single synthetic input tensor was generated per run using a deterministic seed (42) and held constant across all 2000 iterations. This methodology measures \textbf{steady-state warm-cache inference latency}---the best-case scenario for a deployed pipeline---rather than heterogeneous-input throughput, which would require a multi-image pool. We explicitly flag this scope limitation in Section~\ref{sec:discussion}.
-
-We verified that all three frameworks produce valid finite outputs on the same synthetic input: ONNX Runtime outputs 1000-dimensional logits (1000 ImageNet classes, NCHW layout), while the TFLite model outputs 1001-dimensional scores (1000 classes plus a background class, NHWC layout). All outputs are NaN/Inf-free. Input preprocessing differs between frameworks (ONNX: $[-1,1]$ NCHW; TFLite: $[0,1]$ NHWC), which is standard for each framework's model distribution format. Since this benchmark measures inference \emph{latency} rather than prediction \emph{accuracy}, the exact output values do not confound the timing results.
-
-\subsection{Benchmark Protocol}
-
-Each framework was evaluated under single-threaded (1t) and multi-threaded (4t) configurations. The protocol for each run:
-
-\begin{enumerate}
-    \item \textbf{Warmup:} 1000 identical-iteration passes to stabilize CPU frequency scaling, branch predictors, and framework-internal caches.
-    \item \textbf{Measurement:} 1000 identical passes with concurrent system-metric sampling.
-\end{enumerate}
-
-The Rust benchmark was compiled with \texttt{cargo build --release}. Python benchmarks ran inside a consistent virtual environment (NumPy 1.\textit{x}, SciPy 1.\textit{x}, psutil 5.\textit{x}). All 6 configurations were executed sequentially on an isolated Pi 5 to prevent CPU contention across concurrent processes.
-
-\subsection{Data Collection and Statistical Analysis}
-
-Per-iteration latency was recorded via high-resolution timers. System metrics were sampled every 200\,ms:
-\begin{itemize}
-    \item \textbf{CPU:} /proc/stat aggregated system-wide, reported as mean utilization across the measurement window.
-    \item \textbf{Memory:} VmRSS from /proc/self/status.
-    \item \textbf{Temperature:} /sys/class/thermal/thermal\_zone0/temp.
-\end{itemize}
-
-Statistical treatment:
-\begin{enumerate}
-    \item \textbf{Outlier removal:} Iterations outside $Q1 - 1.5 \times IQR$ or $Q3 + 1.5 \times IQR$ were removed.
-    \item \textbf{Bootstrap CI:} 10\,000 resamples to estimate the 95\% confidence interval of the mean.
-    \item \textbf{Summary:} Mean, median, standard deviation, min, max, throughput (fps), peak memory, and mean temperature.
-\end{enumerate}
+Per-iteration latency was recorded via high-resolution timers. System metrics---CPU utilization from /proc/stat, VmRSS from /proc/self/status, and temperature from /sys/class/thermal/thermal\_zone0/temp---were sampled every 200 ms. For statistical analysis, iterations outside $Q1 - 1.5 \times IQR$ or $Q3 + 1.5 \times IQR$ were removed as outliers, 10{,}000 bootstrap resamples were used to estimate the 95\% confidence interval of the mean, and the final summary reports mean, median, standard deviation, min, max, throughput (fps), peak memory, and mean temperature.
 
 %----------------------------------------------------------------------
 \section{Results and Discussion}
@@ -124,62 +84,58 @@ Statistical treatment:
 
 Table~\ref{tab:results} presents the complete results. Figure~\ref{fig:latency} visualizes latency with 95\% bootstrap confidence intervals.
 
-\begin{table}[H]
-\centering
-\caption{Complete benchmark results on Raspberry Pi 5 (Cortex-A76). All values from 1000 measured iterations after 1000-iteration warmup using a single synthetic input tensor.}
+\begin{table}[t]
+\centering\footnotesize
+\caption{Complete benchmark results on Raspberry Pi 5 (Cortex-A76).}
 \label{tab:results}
-\small
-\begin{tabular}{lrrrrrrr}
+\begin{tabular}{lccccc}
 \toprule
-\textbf{Framework} & \textbf{Thr.} & \textbf{Lat.} & \textbf{CI 95\%} & \textbf{FPS} & \textbf{CPU} & \textbf{Mem.} & \textbf{Temp} \\
+\textbf{Framework} & \textbf{Thr.} & \textbf{Lat. (ms)} & \textbf{FPS} & \textbf{CPU} & \textbf{Mem.} \\
 \midrule
-Burn (tract) & 1 & 101.4 ms & {[}101.37, 101.42{]} & 9.9 & 23.5\% & 41.8 MB & 49.3$^\circ$C \\
-Burn (tract) & 4 & 101.8 ms & {[}101.74, 101.79{]} & 9.8 & 23.5\% & 41.8 MB & 48.6$^\circ$C \\
-TFLite & 1 & 22.19 ms & {[}22.192, 22.197{]} & 45.0 & 25.1\% & 540 MB & 48.7$^\circ$C \\
-TFLite & 4 & 10.68 ms & {[}10.679, 10.691{]} & 93.3 & 94.8\% & 540 MB & 56.5$^\circ$C \\
-ONNX RT & 1 & 45.35 ms & {[}45.341, 45.350{]} & 22.0 & 25.1\% & 100 MB & 49.5$^\circ$C \\
-ONNX RT & 4 & 20.34 ms & {[}20.321, 20.353{]} & 49.0 & 99.8\% & 100 MB & 57.1$^\circ$C \\
+Burn (tract) & 1 & $101.4\,[101.37,\,101.42]$ & 9.85 & 23.5\% & 41.8 MB \\
+Burn (tract) & 4 & $101.8\,[101.74,\,101.79]$ & 9.81 & 23.5\% & 41.8 MB \\
+TFLite & 1 & $22.19\,[22.192,\,22.197]$ & 45.04 & 25.1\% & 540 MB \\
+TFLite & 4 & $10.68\,[10.679,\,10.691]$ & 93.29 & 94.8\% & 540 MB \\
+ONNX RT & 1 & $45.35\,[45.341,\,45.350]$ & 22.03 & 25.1\% & 100 MB \\
+ONNX RT & 4 & $20.34\,[20.321,\,20.353]$ & 49.04 & 99.8\% & 100 MB \\
 \bottomrule
 \end{tabular}
+\begin{center}\footnotesize Latency reported as mean~[95\%~CI] from 1000 measured iterations after 1000-iteration warmup. Peak temperature: Burn 49--52$^\circ$C, TFLite 49--58$^\circ$C, ORT 50--58$^\circ$C.\end{center}
 \end{table}
 
-\begin{figure}[H]
+\begin{figure}[t]
     \centering
     \includegraphics[width=\columnwidth]{fig1_latency.png}
-    \caption{Mean inference latency with 95\% bootstrap confidence intervals. Error bars are CI bounds from 10\,000 resamples.}
+    \caption{Mean inference latency with 95\% bootstrap confidence intervals. Error bars represent CI bounds from 10{,}000 bootstrap resamples.}
     \label{fig:latency}
 \end{figure}
 
 TensorFlow Lite achieves the lowest single-threaded latency at 22.19 ms---4.6$\times$ faster than Burn (tract-onnx) at 101.4 ms. ONNX Runtime occupies the middle ground at 45.35 ms. The narrow confidence intervals (width $<0.05$ ms for TFLite and ORT, $\sim0.05$ ms for Burn) confirm that the single-tensor repeated-iteration methodology produces highly stable measurements.
 
-CPU utilization data (Table~\ref{tab:results}) provides the mechanistic explanation for the latency differences. Burn's tract-onnx uses only 23.5\% CPU in both 1t and 4t modes---equivalent to a single core on the quad-core Cortex-A76---confirming that tract executes on a single thread regardless of the thread-count parameter. TFLite and ONNX Runtime both show $\sim25\%$ single-threaded utilization rising to $\sim95\%$-$100\%$ with 4 threads, confirming effective parallelization.
-
-Throughput mirrors latency: TFLite 4t achieves 93.3 fps, ORT 4t reaches 49.0 fps, while Burn remains at $\sim9.9$ fps due to its single-threaded execution model.
+CPU utilization data in Table~\ref{tab:results} provides the mechanistic explanation for the latency differences. Burn's tract-onnx uses only 23.5\% CPU in both 1t and 4t modes---equivalent to a single core on the quad-core Cortex-A76---confirming that tract executes on a single thread regardless of the thread-count parameter. TFLite and ONNX Runtime both show approximately 25\% single-threaded utilization rising to 95--100\% with 4 threads, confirming effective parallelization. Throughput mirrors latency: TFLite 4t achieves 93.3 fps, ORT 4t reaches 49.0 fps, while Burn remains at roughly 9.9 fps due to its single-threaded execution model.
 
 \subsection{Memory Efficiency}
 
-Burn demonstrates exceptional memory efficiency at 41.8 MB peak RSS (Figure~\ref{fig:memory})---4.3$\times$ less than ORT (100 MB) and 12.9$\times$ less than TFLite (540 MB). This advantage stems from Rust's absence of garbage collection and tract-onnx's minimal runtime.
+Burn demonstrates exceptional memory efficiency at 41.8 MB peak RSS (Figure~\ref{fig:memory}), 4.3$\times$ less than ORT (100 MB) and 12.9$\times$ less than TFLite (540 MB). This advantage stems from Rust's absence of garbage collection and tract-onnx's minimal runtime. The TFLite memory footprint requires further clarification, as the 540 MB figure appears identical for both 1t and 4t configurations. This reflects the total process RSS including the Python interpreter, TensorFlow runtime library, and XNNPACK delegate initialization, not the model alone. The byte-identical values across thread configurations confirm that the primary memory cost is the Python environment and delegate allocation incurred once at startup. For deployment scenarios, the model-only memory footprint is approximately 14 MB for MobileNetV2 TFLite~\cite{sandler2018mobilenetv2}, with the remaining roughly 525 MB being Python and runtime overhead.
 
-The TFLite memory footprint (540 MB, identical for 1t and 4t) warrants clarification. This value reflects the total process RSS including the Python interpreter, TensorFlow runtime library, and XNNPACK delegate initialization---not the model alone. The byte-identical values across thread configurations confirm that the primary memory cost is the Python environment and delegate allocation, which is incurred once at startup regardless of thread count. For deployment scenarios, the model-only memory footprint is approximately 14 MB for MobileNetV2 TFLite~\cite{sandler2018mobilenetv2}, with the remaining $\sim$525 MB being Python/runtime overhead.
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{fig3_memory_temp.png}
+    \caption{Peak memory (bars, left axis) and peak temperature (lines, right axis) by framework and thread configuration.}
+    \label{fig:memory}
+\end{figure}
 
 \subsection{Thermal Characteristics}
 
 All frameworks maintained temperatures 26--28$^\circ$C below the Pi 5's 85$^\circ$C throttle threshold. Multi-threaded runs showed a 6--8$^\circ$C increase over single-threaded baselines. Burn exhibited lower peak temperatures (51.8$^\circ$C) consistent with its lower CPU utilization, while TFLite 4t (58.4$^\circ$C) and ORT 4t (58.4$^\circ$C) ran warmer. No thermal throttling was detected in any configuration, confirming that passive cooling suffices for sustained 2000-iteration workloads.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\columnwidth]{fig3_memory_temp.png}
-    \caption{Peak memory (bars) and peak temperature (lines) by framework and thread configuration.}
-    \label{fig:memory}
-\end{figure}
-
 \subsection{Multi-thread Scaling}
 
-Figure~\ref{fig:speedup} quantifies the speedup from single-threaded to quad-threaded execution. TFLite achieves $2.08\times$ speedup and ORT $2.23\times$, consistent with memory-bandwidth-bound CNN inference on mobile-class CPUs~\cite{ignatov2019ai}. The gap between observed speedup and the ideal $4\times$ reflects the serial fraction of the inference pipeline (input preprocessing, output postprocessing, framework-internal synchronization) and memory-bandwidth contention across four cores sharing a single L3 cache and memory controller.
+Figure~\ref{fig:speedup} quantifies the speedup from single-threaded to quad-threaded execution. TFLite achieves $2.08\times$ speedup and ORT achieves $2.23\times$, consistent with memory-bandwidth-bound CNN inference on mobile-class CPUs~\cite{ignatov2019ai}. The gap between observed speedup and the ideal $4\times$ reflects the serial fraction of the inference pipeline---input preprocessing, output postprocessing, and framework-internal synchronization---combined with memory-bandwidth contention across four cores sharing a single L3 cache and memory controller.
 
-Burn shows a statistically significant \emph{regression} from 101.40 ms (1t) to 101.76 ms (4t). The 95\% CIs {[}101.37, 101.42{]} and {[}101.74, 101.79{]} do not overlap---$p < 0.05$---indicating a real albeit tiny multithreading overhead of 0.36 ms ($<0.4\%$). This is consistent with tract-onnx's single-threaded execution plan: setting \texttt{RAYON\_NUM\_THREADS=4} adds synchronization overhead without any parallel speedup.
+Burn shows a statistically significant \emph{regression} from 101.40 ms (1t) to 101.76 ms (4t). The 95\% CIs~[101.37, 101.42] and~[101.74, 101.79] do not overlap ($p < 0.05$), indicating a real albeit tiny multithreading overhead of 0.36 ms ($<0.4\%$). This is consistent with tract-onnx's single-threaded execution plan, where setting \texttt{RAYON\_NUM\_THREADS=4} adds rayon thread-pool synchronization overhead without any parallel inference speedup.
 
-\begin{figure}[H]
+\begin{figure}[t]
     \centering
     \includegraphics[width=\columnwidth]{fig4_speedup.png}
     \caption{Multi-thread speedup factor (4 threads relative to 1 thread). The dashed line marks ideal 4$\times$ scaling.}
@@ -189,34 +145,16 @@ Burn shows a statistically significant \emph{regression} from 101.40 ms (1t) to 
 \subsection{Threats to Validity and Scope Limitations}
 \label{sec:discussion}
 
-Several factors bound the generalizability of these results:
-
-\begin{itemize}
-    \item \textbf{Steady-state measurement:} The single-input repeated-iteration protocol measures warm-cache, branch-predictor-trained steady-state latency. Real deployments processing diverse inputs will experience additional latency from cache misses, memory allocation, and dynamic control flow. Our results should be interpreted as the \emph{baseline best case} for sustained inference.
-    \item \textbf{Hardware generation:} The Raspberry Pi 5 (Cortex-A76) differs significantly from the Pi 4 (Cortex-A72); results on older ARM cores may change.
-    \item \textbf{Model specificity:} MobileNetV2 represents efficient CNN architectures; transformer-based or recurrent models may show different scaling.
-    \item \textbf{Framework version:} All frameworks are under active development. Performance characteristics may shift with future releases.
-    \item \textbf{Output consistency:} The ONNX model (used by Burn and ORT) outputs 1000-dimensional NCHW logits, while the TFLite model outputs 1001-dimensional NHWC scores (extra background class). We verified all frameworks produce finite, non-NaN outputs but did not enforce bit-exact equivalence, as this benchmark measures timing, not accuracy.
-\end{itemize}
+Several factors bound the generalizability of these results. The single-input repeated-iteration protocol measures warm-cache, branch-predictor-trained steady-state latency; real deployments processing diverse inputs will experience additional latency from cache misses, memory allocation, and dynamic control flow, and our results should be interpreted as the baseline best case for sustained inference. The Raspberry Pi 5 (Cortex-A76) differs significantly from the Pi 4 (Cortex-A72) and older generation cores, so results may not transfer to earlier hardware. MobileNetV2 is a lightweight CNN architecture; transformer-based or recurrent models may show different scaling characteristics. All frameworks are under active development, and performance characteristics may shift with future releases. Finally, the ONNX model (used by Burn and ORT) outputs 1000-dimensional logits while the TFLite model outputs 1001-dimensional scores (extra background class); we verified that all frameworks produce finite, non-NaN outputs but did not enforce bit-exact equivalence, as this benchmark measures timing rather than numerical accuracy.
 
 %----------------------------------------------------------------------
 \section{Conclusion}
 \label{sec:conclusion}
 %----------------------------------------------------------------------
 
-This paper presented a systematic steady-state warm-cache benchmark of Burn (tract-onnx), TensorFlow Lite, and ONNX Runtime on Raspberry Pi 5. Key findings:
+This paper presented a systematic steady-state warm-cache benchmark of Burn (tract-onnx), TensorFlow Lite, and ONNX Runtime on Raspberry Pi 5. TensorFlow Lite achieves the highest throughput (93.3 fps, 10.7 ms quad-threaded) and is optimal for latency-critical edge applications with sufficient memory budget. Burn (tract-onnx) demonstrates exceptional memory efficiency (41.8 MB RSS) and is a viable choice for memory-constrained deployments where maximum throughput is not the primary concern. ONNX Runtime provides a balanced middle ground (20.3 ms, 100 MB) with effective multi-thread scaling ($2.23\times$ speedup). All frameworks maintain stable thermal profiles under sustained 2000-iteration workloads with passive cooling, and CPU utilization data confirms tract-onnx's single-threaded execution model, explaining its lack of multi-thread scaling and providing a clear optimization target.
 
-\begin{enumerate}
-    \item TensorFlow Lite achieves the highest throughput (93.3 fps, 10.7 ms quad-threaded), optimal for latency-critical edge applications with sufficient memory budget.
-    \item Burn (tract-onnx) demonstrates exceptional memory efficiency (41.8 MB RSS), a viable choice for memory-constrained deployments where maximum throughput is not the primary concern.
-    \item ONNX Runtime provides a balanced middle ground (20.3 ms, 100 MB) with effective multi-thread scaling ($2.23\times$ speedup).
-    \item All frameworks maintain stable thermal profiles under sustained 2000-iteration workloads with passive cooling.
-    \item CPU utilization data confirms tract-onnx's single-threaded execution model (23.5\% on a quad-core CPU), explaining its lack of multi-thread scaling and providing a clear optimization target.
-\end{enumerate}
-
-The complete benchmark suite---including code, raw results including per-iteration latency arrays, figure-generation scripts, and the paper source---is publicly available at \url{https://github.com/jaweed3/edge-burn-benchmark} to facilitate reproduction and extension.
-
-Future work includes extending the benchmark to older Pi generations (3B+, 4), evaluating quantized MobileNetV2 (INT8), measuring heterogeneous-input throughput with multi-image pools, and comparing newer Rust-based inference runtimes including Burn's native NdArray backend where fullfp16 hardware support is available (e.g., Apple M-series CPUs).
+The complete benchmark suite---including code, raw results, figure-generation scripts, and the paper source---is publicly available at \url{https://github.com/jaweed3/edge-burn-benchmark} to facilitate reproduction and extension. Future work includes extending the benchmark to older Pi generations (3B+, 4), evaluating quantized MobileNetV2 (INT8), measuring heterogeneous-input throughput with multi-image pools, and comparing newer Rust-based inference runtimes including Burn's native NdArray backend where fullfp16 hardware support is available (e.g., Apple M-series CPUs).
 
 \begin{thebibliography}{00}
 
