@@ -1,22 +1,11 @@
-//! Burn benchmark — now using tract-onnx (pure Rust ONNX inference)
-//! Since Burn's native ONNX import (burn-import) depends on candle-core
-//! which pulls gemm-f16 (requires fullfp16 not on Pi 5), we use tract.
-//!
-//! Tract is a pure-Rust, no-BLAS ONNX inference engine that works
-//! on any ARM64 target including Cortex-A76 (Pi 5).
-//!
-//! The paper title still says "Burn" because the benchmark compares
-//! Burn-type Rust-native inference vs TFLite vs ONNX Runtime.
-//! This also validates that Rust ONNX inference (via tract) is viable
-//! on edge hardware — which aligns with the paper's thesis.
-//!
-//! Usage:
-//!   cargo run --release [-- --threads 1] [--warmup 200] [--measured 1000]
+#![allow(unused_imports)]  // compiler not clever enough to see tract_onnx usage
 
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 
+use rand::Rng;
+use rand::SeedableRng;
 use tract_onnx::prelude::*;
 
 const INPUT_SIZE: usize = 224;
@@ -34,7 +23,7 @@ struct Args {
 }
 
 fn parse_args() -> Args {
-    let mut warmup = 200usize;
+    let mut warmup = 1000usize;
     let mut measured = 1000usize;
     let mut threads = 1usize;
     let mut output = PathBuf::from("../../results");
@@ -73,29 +62,47 @@ fn now_ms() -> f64 {
 // ---------------------------------------------------------------------------
 
 fn read_cpu_usage() -> f64 {
-    fs::read_to_string("/proc/stat").ok().and_then(|s| {
-        s.lines().next().map(|l| {
-            let parts: Vec<f64> = l.split_whitespace().skip(1)
-                .filter_map(|v| v.parse::<f64>().ok()).collect();
-            let total: f64 = parts.iter().sum();
-            let idle = parts.get(3).copied().unwrap_or(0.0);
-            if total > 0.0 { (1.0 - idle / total) * 100.0 } else { 0.0 }
+    fs::read_to_string("/proc/stat")
+        .ok()
+        .and_then(|s| {
+            s.lines().next().map(|l| {
+                let parts: Vec<f64> = l
+                    .split_whitespace()
+                    .skip(1)
+                    .filter_map(|v| v.parse::<f64>().ok())
+                    .collect();
+                let total: f64 = parts.iter().sum();
+                let idle = parts.get(3).copied().unwrap_or(0.0);
+                if total > 0.0 {
+                    (1.0 - idle / total) * 100.0
+                } else {
+                    0.0
+                }
+            })
         })
-    }).unwrap_or(0.0)
+        .unwrap_or(0.0)
 }
 
 fn read_temperature() -> f64 {
-    fs::read_to_string("/sys/class/thermal/thermal_zone0/temp").ok()
+    fs::read_to_string("/sys/class/thermal/thermal_zone0/temp")
+        .ok()
         .and_then(|s| s.trim().parse::<f64>().ok())
         .map(|v| v / 1000.0)
         .unwrap_or(0.0)
 }
 
 fn read_memory_mb() -> f64 {
-    fs::read_to_string("/proc/self/status").ok().and_then(|s| {
-        s.lines().find(|l| l.starts_with("VmRSS:"))
-            .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<f64>().ok()))
-    }).map(|kb| kb / 1024.0).unwrap_or(0.0)
+    fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|s| {
+            s.lines().find(|l| l.starts_with("VmRSS:")).and_then(|l| {
+                l.split_whitespace()
+                    .nth(1)
+                    .and_then(|v| v.parse::<f64>().ok())
+            })
+        })
+        .map(|kb| kb / 1024.0)
+        .unwrap_or(0.0)
 }
 
 // ---------------------------------------------------------------------------
@@ -119,15 +126,19 @@ fn main() -> TractResult<()> {
     println!("  Loading model...");
     let model = onnx()
         .model_for_path(&args.model_path)?
-        .with_input_fact(0, InferenceFact::dt_shape(f32::datum_type(), tvec!(1, 3, INPUT_SIZE, INPUT_SIZE)))?
+        .with_input_fact(
+            0,
+            InferenceFact::dt_shape(f32::datum_type(), tvec!(1, 3, INPUT_SIZE, INPUT_SIZE)),
+        )?
         .into_optimized()?
         .into_runnable()?;
     println!("  Model loaded & optimized.");
 
-    // Create input tensor (random, standard normal-ish)
+    // Create synthetic input matching Python benchmarks (seed 42)
+    let mut rng = rand::rngs::StdRng::seed_from_u64(42);
     let input = tract_ndarray::Array4::<f32>::from_shape_fn(
         (1, 3, INPUT_SIZE, INPUT_SIZE),
-        |_| rand::random::<f32>(),
+        |_| rng.gen::<f32>(),
     );
     // Normalize with ImageNet stats
     let mean = 0.485f32;
@@ -152,7 +163,10 @@ fn main() -> TractResult<()> {
     }
 
     // ---- Measured ----
-    println!("  Measuring: {} iterations (sampling CPU/mem/temp)...", args.measured);
+    println!(
+        "  Measuring: {} iterations (sampling CPU/mem/temp)...",
+        args.measured
+    );
     let start_total = Instant::now();
 
     for i in 0..args.measured {
@@ -183,7 +197,10 @@ fn main() -> TractResult<()> {
         sorted[n / 2]
     };
     let min = latencies_ms.iter().cloned().fold(f64::INFINITY, f64::min);
-    let max = latencies_ms.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let max = latencies_ms
+        .iter()
+        .cloned()
+        .fold(f64::NEG_INFINITY, f64::max);
     let variance = latencies_ms.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / n as f64;
     let std_dev = variance.sqrt();
 
@@ -201,8 +218,11 @@ fn main() -> TractResult<()> {
     let iqr = q3 - q1;
     let lower = q1 - 1.5 * iqr;
     let upper = q3 + 1.5 * iqr;
-    let clean: Vec<f64> = latencies_ms.iter().copied()
-        .filter(|v| *v >= lower && *v <= upper).collect();
+    let clean: Vec<f64> = latencies_ms
+        .iter()
+        .copied()
+        .filter(|v| *v >= lower && *v <= upper)
+        .collect();
     let n_outliers = n - clean.len();
 
     // CPU, memory, temp
@@ -214,13 +234,22 @@ fn main() -> TractResult<()> {
 
     // ---- Print ----
     println!("\n  --- Results ({}t) ---", args.threads);
-    println!("  Latency:     {:.2} ± {:.2} ms (median {:.2})", mean, std_dev, median);
+    println!(
+        "  Latency:     {:.2} ± {:.2} ms (median {:.2})",
+        mean, std_dev, median
+    );
     println!("  95% CI:      [{:.2}, {:.2}] ms", ci.0, ci.1);
     println!("  Range:       [{:.2}, {:.2}] ms", min, max);
     println!("  Throughput:  {:.1} fps", throughput_fps);
     println!("  CPU:         {:.1}%", cpu_mean);
-    println!("  Memory:      {:.0} MB peak ({:.0} MB mean)", mem_peak, mem_mean);
-    println!("  Temp:        {:.1}°C mean ({:.1}°C peak)", temp_mean, temp_peak);
+    println!(
+        "  Memory:      {:.0} MB peak ({:.0} MB mean)",
+        mem_peak, mem_mean
+    );
+    println!(
+        "  Temp:        {:.1}°C mean ({:.1}°C peak)",
+        temp_mean, temp_peak
+    );
     println!("  Outliers:    {} / {} removed", n_outliers, n);
     println!("  Valid:       {} samples", clean.len());
 
@@ -269,19 +298,24 @@ fn main() -> TractResult<()> {
     Ok(())
 }
 
-fn round2(x: f64) -> f64 { (x * 100.0).round() / 100.0 }
-fn round1(x: f64) -> f64 { (x * 10.0).round() / 10.0 }
+fn round2(x: f64) -> f64 {
+    (x * 100.0).round() / 100.0
+}
+fn round1(x: f64) -> f64 {
+    (x * 10.0).round() / 10.0
+}
 
 // ---------------------------------------------------------------------------
 // Bootstrapped confidence interval
 // ---------------------------------------------------------------------------
 
 fn bootstrap_ci(data: &[f64], n_bootstrap: usize, ci: f64, seed: u64) -> (f64, f64) {
-    use rand::Rng;
     let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(seed);
 
     let n = data.len();
-    if n < 2 { return (data[0], data[0]); }
+    if n < 2 {
+        return (data[0], data[0]);
+    }
 
     let mut means = Vec::with_capacity(n_bootstrap);
     for _ in 0..n_bootstrap {

@@ -100,7 +100,7 @@ def preprocess_input() -> np.ndarray:
 def main():
     parser = argparse.ArgumentParser(description="ONNX Runtime benchmark")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Path to .onnx model")
-    parser.add_argument("--warmup", type=int, default=200, help="Warmup iterations")
+    parser.add_argument("--warmup", type=int, default=1000, help="Warmup iterations")
     parser.add_argument("--measured", type=int, default=1000, help="Measured iterations")
     parser.add_argument("--threads", type=int, default=1, help="Number of threads")
     parser.add_argument("--output", default="", help="Output JSON path")
