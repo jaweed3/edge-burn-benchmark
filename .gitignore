@@ -1,0 +1,27 @@
+# Rust
+target/
+Cargo.lock
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Models (downloaded)
+models/*.tflite
+models/*.onnx
+
+# Results
+results/*.json
+results/*.csv
+
+# OS
+.DS_Store
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
