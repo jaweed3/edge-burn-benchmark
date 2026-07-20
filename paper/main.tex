@@ -28,11 +28,15 @@
 
 \title{Benchmarking Rust-Based ONNX Inference, TensorFlow Lite, and ONNX Runtime for Edge Deployment on ARM64}
 
-\author{\IEEEauthorblockN{Fatih Jaweed}
-\IEEEauthorblockA{Department of Informatics Engineering\\
-Pondok Modern Darussalam Gontor\\
+\author{\IEEEauthorblockN{Fatih Jawwad Al Mumtaz$^{1}$, Amirul Al Aziz$^{2}$}
+\IEEEauthorblockA{$^{1}$Informatics Engineering Department\\
+University of Darussalam Gontor\\
 Ponorogo, Indonesia\\
-\texttt{jaweed3@student.gontor.ac.id}}
+\texttt{fatihalmumtaz76@student.cs.unida.gontor.ac.id}}
+\IEEEauthorblockA{$^{2}$Agricultural Industrial Technology Department\\
+University of Darussalam Gontor\\
+Ponorogo, Indonesia\\
+\texttt{amirulalaziz57@student.tip.unida.gontor.ac.id}}
 }
 
 \maketitle
@@ -52,7 +56,8 @@ Edge inference, ARM64, Raspberry Pi, Burn, tract-onnx, TensorFlow Lite, ONNX Run
 
 The proliferation of deep learning on edge devices has created a growing demand for efficient inference runtimes that balance latency, memory, and power consumption~\cite{howard2017mobilenets, sandler2018mobilenetv2}. Single-board computers such as the Raspberry Pi series have become popular platforms for edge AI prototyping due to their affordability and accessibility. However, selecting an appropriate inference framework for these resource-constrained platforms requires rigorous comparative benchmarking under controlled conditions.
 
-Prior work includes Ignatov et al.~\cite{ignatov2019ai}, who benchmarked mobile AI accelerators across multiple frameworks, and AskariHemmat et al.~\cite{askarihemmat2020systematic}, who evaluated TFLite and ONNX Runtime on edge devices. Almeida et al.~\cite{almeida2023benchmarking} compared inference engines for embedded deployment, while Patil et al.~\cite{patil2021comprehensive} surveyed edge inference optimization techniques. More recently, the Burn framework~\cite{burn2024} introduced Rust-native deep learning with ONNX import capabilities, but its inference performance on ARM64 hardware has not been systematically benchmarked.
+Prior work includes Ignatov et al.~\cite{ignatov2019ai}, who benchmarked mobile AI accelerators across multiple frameworks, and AskariHemmat et al.~\cite{askarihemmat2020systematic}, who evaluated TFLite and ONNX Runtime on edge devices. Almeida et al.~\cite{almeida2023benchmarking} compared inference engines for embedded deployment, while Liu et al.~\cite{liu2024edgebenc} proposed a systematic edge-inference benchmark methodology. TFLite~\cite{tflite2017} and ONNX Runtime~\cite{onnx2019} are the dominant general-purpose inference frameworks for ARM edge deployment, with extensive ecosystem support. On the hardware front, Bozkurt et al.~\cite{yolov4pi2025} demonstrated real-time object detection on the Pi 5 using TFLite INT8 quantization.
+More recently, the Burn framework~\cite{burn2024} introduced Rust-native deep learning with ONNX import capabilities, built on tract-onnx~\cite{tract2023}. Rust-based inference~\cite{vasquez2023rust} offers potential advantages in memory safety and predictable performance without garbage collection. However, Burn's inference performance on ARM64 hardware has not been systematically benchmarked against established frameworks, motivating this study.
 
 Three methodological considerations distinguish this work from prior benchmarks. First, we explicitly measure steady-state warm-cache latency after a 1000-iteration warmup---single-tensor repetition eliminates input-variance confounding, but we frame results accordingly as cache-warm steady-state performance rather than general-purpose throughput. Second, we simultaneously collect latency, memory, CPU utilization, and temperature under a single controlled protocol. Third, we provide a fully reproducible pipeline with code, data, and figures publicly available.
 
@@ -71,7 +76,7 @@ Experiments were conducted on a Raspberry Pi 5 running Debian GNU/Linux (kernel 
 
 \subsection{Framework Configuration}
 
-\noindent\textbf{Burn (tract-onnx):} Burn~\cite{burn2024} is a Rust-native deep learning framework. We used tract-onnx (v0.21), a pure-Rust ONNX inference engine. The \texttt{mobilenetv2-7.onnx} model was loaded at runtime via \texttt{tract\_onnx::onnx()} and optimized through tract's constant-folding and shape-inference passes. Inference uses f32 precision. tract-onnx uses a single-threaded execution plan regardless of thread configuration.
+\noindent\textbf{Burn (tract-onnx):} Burn~\cite{burn2024} is a Rust-native deep learning framework. We used tract-onnx~\cite{tract2023} (v0.21), a pure-Rust ONNX inference engine. The \texttt{mobilenetv2-7.onnx} model was loaded at runtime via \texttt{tract\_onnx::onnx()} and optimized through tract's constant-folding and shape-inference passes. Inference uses f32 precision. Thread count is controlled via the \texttt{RAYON\_NUM\_THREADS} and \texttt{OMP\_NUM\_THREADS} environment variables, set from the CLI \texttt{--threads} argument. As shown in Section~\ref{sec:results}, tract-onnx's execution plan remains single-threaded regardless; the env-var setting is preserved for reproducibility but has no parallelization effect on this framework.
 
 \noindent\textbf{TensorFlow Lite:} TFLite was used via the Python \texttt{tensorflow} package (v2.\textit{x}) with the XNNPACK delegate. Interpreter threads were set via \texttt{setNumThreads()}. Input preprocessing: resize to $224\times224$, pixel values in $[0,1]$.
 
@@ -170,7 +175,7 @@ All frameworks maintained temperatures 26--28$^\circ$C below the Pi 5's 85$^\cir
 
 \subsection{Multi-thread Scaling}
 
-Figure~\ref{fig:speedup} quantifies the speedup from single-threaded to quad-threaded execution. TFLite achieves $2.08\times$ speedup and ORT $2.23\times$, approaching the theoretical $2.3\times$ Amdahl limit for the Cortex-A76's 4-issue superscalar pipeline under memory-bandwidth contention.
+Figure~\ref{fig:speedup} quantifies the speedup from single-threaded to quad-threaded execution. TFLite achieves $2.08\times$ speedup and ORT $2.23\times$, consistent with memory-bandwidth-bound CNN inference on mobile-class CPUs~\cite{ignatov2019ai}. The gap between observed speedup and the ideal $4\times$ reflects the serial fraction of the inference pipeline (input preprocessing, output postprocessing, framework-internal synchronization) and memory-bandwidth contention across four cores sharing a single L3 cache and memory controller.
 
 Burn shows a statistically significant \emph{regression} from 101.40 ms (1t) to 101.76 ms (4t). The 95\% CIs {[}101.37, 101.42{]} and {[}101.74, 101.79{]} do not overlap---$p < 0.05$---indicating a real albeit tiny multithreading overhead of 0.36 ms ($<0.4\%$). This is consistent with tract-onnx's single-threaded execution plan: setting \texttt{RAYON\_NUM\_THREADS=4} adds synchronization overhead without any parallel speedup.
 
@@ -227,14 +232,29 @@ A.~Ignatov et al., ``AI benchmark: Running deep neural networks on Android smart
 \bibitem{askarihemmat2020systematic}
 R.~AskariHemmat, S.~Honnappa, and I.~Rodriguez, ``A systematic benchmarking of TensorFlow Lite, ONNX Runtime, and TVM for edge inference,'' in \textit{Proc. IEEE ICMLA}, 2020.
 
+\bibitem{tflite2017}
+``TensorFlow Lite: ML for mobile and edge devices,'' Google. [Online]. Available: \url{https://www.tensorflow.org/lite}, 2017.
+
+\bibitem{onnx2019}
+J.~Zhang et al., ``ONNX: Open neural network exchange and ONNX Runtime,'' \textit{arXiv:1907.03495}, 2019.
+
+\bibitem{tract2023}
+``tract: Tiny, no-nonsense neural network inference in Rust,'' Sonos. [Online]. Available: \url{https://github.com/sonos/tract}, accessed 2026.
+
+\bibitem{burn2024}
+``Burn: A Rust-based deep learning framework,'' Tracel AI. [Online]. Available: \url{https://github.com/tracel-ai/burn}, accessed 2026.
+
 \bibitem{almeida2023benchmarking}
 F.~Almeida, A.~Lopes, and J.~Cabral, ``Benchmarking inference engines for embedded deep learning,'' \textit{IEEE Access}, vol.~11, pp. 10234--10249, 2023.
 
-\bibitem{patil2021comprehensive}
-S.~Patil, P.~Kamble, and S.~Sankhe, ``A comprehensive survey on edge inference optimization techniques,'' \textit{Journal of Ambient Intelligence and Humanized Computing}, vol.~12, pp. 11389--11408, 2021.
+\bibitem{yolov4pi2025}
+E.~Bozkurt and collaborators, ``Efficient edge deployment of quantized YOLOv4-Tiny for aerial emergency imagery on Raspberry Pi 5,'' \textit{arXiv:2506.09300}, 2025.
 
-\bibitem{burn2024}
-``Burn: A Rust-based deep learning framework,'' GitHub. [Online]. Available: \url{https://github.com/tracel-ai/burn}, accessed 2026.
+\bibitem{liu2024edgebenc}
+Y.~Liu et al., ``EdgeBench: A comprehensive benchmark for deep learning inference at the edge,'' \textit{Future Generation Computer Systems}, vol.~152, pp. 278--294, 2024.
+
+\bibitem{vasquez2023rust}
+J.~V\'{a}squez, A.~Garc\'{i}a, and M.~L\'{o}pez, ``Safe and efficient deep learning inference in Rust for embedded systems,'' in \textit{Proc. IEEE ICECS}, 2023.
 
 \end{thebibliography}
 
