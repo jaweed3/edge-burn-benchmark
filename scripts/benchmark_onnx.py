@@ -88,8 +88,8 @@ def preprocess_input() -> np.ndarray:
     rng = np.random.default_rng(42)
     raw = rng.uniform(0, 1, size=(1, 3, INPUT_SIZE, INPUT_SIZE)).astype(np.float32)
     # Standardize: (x - mean) / std  with ImageNet stats
-    mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
-    std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 3, 1, 1)
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 3, 1, 1)
     return (raw - mean) / std
 
 
