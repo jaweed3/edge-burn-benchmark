@@ -111,7 +111,7 @@ python scripts/benchmark_onnx.py --threads 1 --warmup 200 --measured 1000
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--threads` | 1 | Number of threads (1 or 4) |
-| `--warmup` | 200 | Warm-up iterations (discarded) |
+| `--warmup` | 1000 | Warm-up iterations (discarded) |
 | `--measured` | 1000 | Measured iterations |
 | `--output` | `results/` | Output directory |
 | `--model` | `models/...` | Model path |
@@ -131,7 +131,7 @@ python scripts/benchmark_onnx.py --threads 1 --warmup 200 --measured 1000
 
 ### Statistical Methodology
 
-1. **Warmup:** 200 iterations (discarded) to reach thermal steady state
+1. **Warmup:** 1,000 iterations (discarded) to reach thermal steady state
 2. **Measurement:** 1,000 iterations recorded
 3. **Outlier removal:** IQR method (1.5× IQR below Q1 or above Q3)
 4. **Confidence intervals:** Bootstrap with 10,000 resamples at 95% confidence
@@ -207,13 +207,14 @@ A `_machine.json` sidecar records system info for reproducibility.
 
 ## Reproducibility
 
-This repository contains everything needed to reproduce the benchmarks:
+This repository contains everything needed to reproduce the benchmarks and paper:
 
 - **Source code:** All benchmark scripts and Burn Rust source
 - **Model download:** Automated via `models/download_models.sh`
 - **Environment setup:** Automated via `setup.sh`
 - **Results:** Raw JSON output with full metadata
-- **Dockerfile:** Containerized environment (see `docker/`)
+- **Figures:** Paper-quality graphs at `figures/` (PDF vector + PNG)
+- **Paper draft:** LaTeX source at `paper/main.tex` (ComTech format)
 
 To reproduce:
 
@@ -246,8 +247,14 @@ edge-burn-benchmark/
 ├── scripts/
 │   ├── benchmark_common.py   # Shared metrics/statistics library
 │   ├── benchmark_tflite.py   # TensorFlow Lite benchmark
-│   └── benchmark_onnx.py     # ONNX Runtime benchmark
-└── results/                  # Benchmark output (gitignored)
+│   ├── benchmark_onnx.py     # ONNX Runtime benchmark
+│   └── generate_figures.py   # Paper-quality figure generation
+├── paper/
+│   ├── main.tex              # LaTeX paper draft (ComTech format)
+│   ├── Makefile              # Build with `tectonic main.tex`
+│   └── main.pdf              # Compiled PDF
+├── results/                  # Benchmark output (gitignored)
+└── figures/                  # Generated figures (PDF + PNG)
 ```
 
 ---
