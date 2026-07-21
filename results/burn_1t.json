@@ -1,0 +1,39 @@
+{
+  "config": {
+    "engine": "tract-onnx",
+    "framework": "burn",
+    "input_shape": [
+      1,
+      3,
+      224,
+      224
+    ],
+    "model": "mobilenetv2-7.onnx",
+    "n_measured": 1000,
+    "n_threads": 1,
+    "n_warmup": 1000
+  },
+  "machine_info": {
+    "compiler": "",
+    "cpu_count": 4,
+    "hostname": "",
+    "machine": "aarch64"
+  },
+  "summary": {
+    "ci_95_lower_ms": 101.37,
+    "ci_95_upper_ms": 101.42,
+    "cpu_mean_pct": 23.5,
+    "latency_max_ms": 103.53,
+    "latency_mean_ms": 101.4,
+    "latency_median_ms": 101.28,
+    "latency_min_ms": 101.08,
+    "latency_std_ms": 0.38,
+    "memory_mean_mb": 41.8,
+    "memory_peak_mb": 41.8,
+    "n_outliers_removed": 113,
+    "n_valid": 887,
+    "temp_mean_c": 49.3,
+    "temp_peak_c": 51.8,
+    "throughput_fps": 9.85
+  }
+}
