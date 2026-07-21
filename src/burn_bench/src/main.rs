@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use burn::tensor::Tensor;
+use burn::tensor::TensorData;
 use burn_ndarray::NdArray;
 use serde_json::json;
 use rand::Rng;
@@ -173,8 +174,10 @@ fn main() {
     for v in &mut flat_data {
         *v = (*v - mean) / std;
     }
-    let input = Tensor::<NdArray<f32>, 4>::from_floats(flat_data.as_slice(), &device)
-        .reshape([1, 3, INPUT_SIZE, INPUT_SIZE]);
+    let input = Tensor::<NdArray<f32>, 4>::from_data(
+        TensorData::new(flat_data.as_slice(), [1, 3, INPUT_SIZE, INPUT_SIZE]),
+        &device
+    );
 
     // ---- Container ----
     let n_total = args.warmup + args.measured;
