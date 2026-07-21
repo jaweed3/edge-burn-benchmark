@@ -1,6 +1,7 @@
 {
   "config": {
-    "engine": "tract-onnx",
+    "burn_version": "0.21",
+    "engine": "burn-native-ndarray",
     "framework": "burn",
     "input_shape": [
       1,
@@ -8,10 +9,10 @@
       224,
       224
     ],
-    "model": "mobilenetv2-7.onnx",
-    "n_measured": 1000,
+    "model": "mobilenetv2-7.onnx (burn-onnx codegen)",
+    "n_measured": 500,
     "n_threads": 1,
-    "n_warmup": 1000
+    "n_warmup": 100
   },
   "machine_info": {
     "compiler": "",
@@ -20,20 +21,20 @@
     "machine": "aarch64"
   },
   "summary": {
-    "ci_95_lower_ms": 101.37,
-    "ci_95_upper_ms": 101.42,
-    "cpu_mean_pct": 23.5,
-    "latency_max_ms": 103.53,
-    "latency_mean_ms": 101.4,
-    "latency_median_ms": 101.28,
-    "latency_min_ms": 101.08,
-    "latency_std_ms": 0.38,
-    "memory_mean_mb": 41.8,
-    "memory_peak_mb": 41.8,
-    "n_outliers_removed": 113,
-    "n_valid": 887,
-    "temp_mean_c": 49.3,
-    "temp_peak_c": 51.8,
-    "throughput_fps": 9.85
+    "ci_95_lower_ms": 772.64,
+    "ci_95_upper_ms": 773.18,
+    "cpu_mean_pct": 2.6,
+    "latency_max_ms": 805.98,
+    "latency_mean_ms": 772.89,
+    "latency_median_ms": 772.46,
+    "latency_min_ms": 770.47,
+    "latency_std_ms": 3.1,
+    "memory_mean_mb": 24.5,
+    "memory_peak_mb": 24.5,
+    "n_outliers_removed": 17,
+    "n_valid": 483,
+    "temp_mean_c": 47.7,
+    "temp_peak_c": 50.2,
+    "throughput_fps": 1.29
   }
 }
