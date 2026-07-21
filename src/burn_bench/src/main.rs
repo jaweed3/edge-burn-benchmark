@@ -14,7 +14,6 @@ use rand::SeedableRng;
 include!(concat!(env!("OUT_DIR"), "/burn_model/mobilenetv2-7.rs"));
 
 const INPUT_SIZE: usize = 224;
-type Backend = NdArray<f32>;
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -159,7 +158,7 @@ fn main() {
 
     // ---- Load model ----
     println!("  Loading Burn model...");
-    let model = Model::<Backend>::new(&device);
+    let model = Model::<NdArray<f32>>::default();
     println!("  Model loaded.");
 
     // ---- Create synthetic input (seed 42, same as Python) ----
@@ -174,7 +173,7 @@ fn main() {
     for v in &mut flat_data {
         *v = (*v - mean) / std;
     }
-    let input = Tensor::<Backend, 4>::from_floats(flat_data.as_slice(), &device)
+    let input = Tensor::<NdArray<f32>, 4>::from_floats(flat_data.as_slice(), &device)
         .reshape([1, 3, INPUT_SIZE, INPUT_SIZE]);
 
     // ---- Container ----
