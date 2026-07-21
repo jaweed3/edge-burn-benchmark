@@ -175,7 +175,7 @@ fn main() {
         *v = (*v - mean) / std;
     }
     let input = Tensor::<NdArray<f32>, 4>::from_data(
-        TensorData::new(flat_data.as_slice(), [1, 3, INPUT_SIZE, INPUT_SIZE]),
+        TensorData::new(flat_data, [1, 3, INPUT_SIZE, INPUT_SIZE]),
         &device
     );
 
