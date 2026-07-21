@@ -15,21 +15,30 @@ echo "Date:   $(date -u '+%Y-%m-%d %H:%M UTC')"
 echo "=============================================="
 
 # --- Config ---
-WARMUP=200
+BURN_WARMUP=1000
+TFLITE_WARMUP=200
+ONNX_WARMUP=200
 MEASURED=1000
 
 # --- 1. Burn benchmark ---
 echo ""
-echo "[1/3] Burn benchmark"
+echo "[1/3] Burn benchmark (Burn 0.21 native ndarray)"
 cd "$SCRIPT_DIR/src/burn_bench"
+
+# Copy ONNX model for burn-onnx codegen
+mkdir -p "$SCRIPT_DIR/src/burn_bench"
+if [ ! -f mobilenetv2-7.onnx ]; then
+    cp "$SCRIPT_DIR/models/mobilenetv2-7.onnx" mobilenetv2-7.onnx
+fi
+
 for threads in 1 4; do
     echo ""
     echo "--- Burn ${threads}t ---"
+    RAYON_NUM_THREADS=$threads OMP_NUM_THREADS=$threads \
     cargo run --release -- \
-        --warmup $WARMUP --measured $MEASURED \
+        --warmup $BURN_WARMUP --measured $MEASURED \
         --threads $threads \
-        --output "$RESULTS_DIR" \
-        --model "$SCRIPT_DIR/models/mobilenetv2-7.onnx" 2>&1
+        --output "$RESULTS_DIR" 2>&1
 done
 
 # --- 2. TFLite benchmark ---
@@ -41,7 +50,7 @@ for threads in 1 4; do
     echo ""
     echo "--- TFLite ${threads}t ---"
     python scripts/benchmark_tflite.py \
-        --warmup $WARMUP --measured $MEASURED \
+        --warmup $TFLITE_WARMUP --measured $MEASURED \
         --threads $threads
 done
 
@@ -52,7 +61,7 @@ for threads in 1 4; do
     echo ""
     echo "--- ONNX ${threads}t ---"
     python scripts/benchmark_onnx.py \
-        --warmup $WARMUP --measured $MEASURED \
+        --warmup $ONNX_WARMUP --measured $MEASURED \
         --threads $threads
 done
 
@@ -62,3 +71,6 @@ echo "  All benchmarks complete!"
 echo "  Results in: $RESULTS_DIR/"
 echo "=============================================="
 ls -lh "$RESULTS_DIR"/*.json 2>/dev/null
+
+# Clean up model copy
+rm -f "$SCRIPT_DIR/src/burn_bench/mobilenetv2-7.onnx"
