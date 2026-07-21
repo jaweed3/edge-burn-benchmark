@@ -14,8 +14,8 @@ models/*.tflite
 models/*.onnx
 
 # Results
-results/*.json
-results/*.csv
+# results/
+# results/*.json
 
 # OS
 .DS_Store
